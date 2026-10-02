@@ -1,0 +1,8 @@
+{
+  "workbench.colorCustomizations": {
+    "terminal.background": "#000000",
+    "terminal.foreground": "#f8fafc",
+    "terminalCursor.foreground": "#38bdf8",
+    "terminal.border": "#18181b"
+  }
+}

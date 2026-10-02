@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monte Carlo Risk Simulator | Institutional Quantitative Risk Engine</title>
+  <meta name="description" content="Institutional Monte Carlo simulation engine with Geometric Brownian Motion, 5-day Block Bootstrap, and multi-confidence Value at Risk (VaR).">
+  
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Bootstrap 5.3 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
+  <!-- Plotly CDN -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #000000;
+      --card-bg: #09090b;
+      --card-border: #1f1f23;
+      --accent-cyan: #38bdf8;
+      --accent-emerald: #10b981;
+      --accent-rose: #f43f5e;
+      --accent-amber: #f59e0b;
+    }
+
+    body {
+      background-color: #000000;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      color: #f1f5f9;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .glass-card {
+      background: #050507;
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.95);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .glass-card:hover {
+      border-color: #27272a;
+    }
+
+    .var-hero-card {
+      background: #000000;
+      border: 1px solid rgba(244, 63, 94, 0.45);
+      box-shadow: 0 0 30px -10px rgba(244, 63, 94, 0.3);
+    }
+
+    .var-value-display {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--accent-rose);
+      letter-spacing: -0.03em;
+      text-shadow: 0 0 20px rgba(244, 63, 94, 0.35);
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .se-badge {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #94a3b8;
+      background: rgba(148, 163, 184, 0.12);
+      padding: 0.15rem 0.45rem;
+      border-radius: 6px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .form-control, .form-select, .input-group-text {
+      background-color: #000000;
+      border-color: #27272a;
+      color: #f8fafc;
+      border-radius: 10px;
+    }
+
+    .form-control:focus, .form-select:focus {
+      background-color: #050505;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 0 0.25rem rgba(56, 189, 248, 0.2);
+      color: #fff;
+    }
+
+    .btn-risk-engine {
+      background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+      border: none;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 0.75rem 1.5rem;
+      border-radius: 10px;
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35);
+      transition: all 0.2s ease;
+    }
+
+    .btn-risk-engine:hover:not(:disabled) {
+      background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+      transform: translateY(-1px);
+      color: #fff;
+    }
+
+    .ticker-pill, .preset-pill {
+      font-size: 0.78rem;
+      padding: 0.22rem 0.55rem;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .ticker-pill:hover, .preset-pill:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-cyan);
+      color: #fff;
+    }
+
+    .preset-pill.active {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: var(--accent-cyan);
+      color: #fff;
+    }
+
+    .nav-tabs-custom .nav-link {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #94a3b8;
+      border-radius: 8px;
+      padding: 0.45rem 1rem;
+      font-weight: 500;
+      font-size: 0.88rem;
+      transition: all 0.15s ease;
+    }
+
+    .nav-tabs-custom .nav-link.active {
+      background: #18181b;
+      border-color: #27272a;
+      color: var(--accent-cyan);
+    }
+
+    .table-dark-custom {
+      --bs-table-bg: transparent;
+      --bs-table-border-color: #1f1f23;
+    }
+
+    .chart-container-box {
+      min-height: 480px;
+      position: relative;
+    }
+
+    .pulse-loader {
+      display: inline-block;
+      width: 44px;
+      height: 44px;
+      border: 3px solid rgba(56, 189, 248, 0.2);
+      border-radius: 50%;
+      border-top-color: var(--accent-cyan);
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="py-4">
+
+  <div class="container-fluid px-lg-5">
+    <!-- Header -->
+    <header class="d-flex flex-wrap align-items-center justify-content-between pb-3 mb-4 border-bottom border-secondary border-opacity-25">
+      <div class="d-flex align-items-center gap-3">
+        <div class="p-2 rounded-3 bg-primary bg-opacity-10 border border-primary border-opacity-25 text-primary">
+          <i class="bi bi-activity fs-3 text-info"></i>
+        </div>
+        <div>
+          <h1 class="h3 fw-bold mb-0 text-white">Monte Carlo Risk Simulator</h1>
+          <p class="text-secondary small mb-0">Institutional quantitative risk engine: GBM vs. 5-day Block Bootstrap & VaR noise quantification</p>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+        <span class="badge bg-dark border border-secondary border-opacity-50 text-light px-3 py-2 font-mono">
+          <i class="bi bi-shield-lock-fill text-info me-1"></i> Basel II/III Standards
+        </span>
+      </div>
+    </header>
+
+    <!-- Error Alert Banner -->
+    <div id="error-alert" class="alert alert-danger alert-dismissible fade show d-none glass-card border-danger text-light mb-4" role="alert">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+        <div id="error-message">An error occurred during simulation.</div>
+      </div>
+      <button type="button" class="btn-close btn-close-white" onclick="hideError()"></button>
+    </div>
+
+    <div class="row g-4">
+      <!-- Input Panel (Left Column) -->
+      <div class="col-lg-4 col-xl-3">
+        <div class="card glass-card h-100 p-4">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-sliders text-info"></i>
+            <h2 class="h5 fw-semibold mb-0">Simulation Inputs</h2>
+          </div>
+
+          <form id="simulation-form" onsubmit="event.preventDefault(); runSimulation();">
+            <!-- Stock Ticker Input -->
+            <div class="mb-3">
+              <label for="ticker-input" class="form-label text-secondary small fw-medium">Stock Ticker</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search text-secondary"></i></span>
+                <input 
+                  type="text" 
+                  id="ticker-input" 
+                  class="form-control font-mono text-uppercase" 
+                  value="AAPL" 
+                  placeholder="e.g. AAPL, TSLA" 
+                  pattern="^[A-Za-z0-9.^=\-]{1,15}$"
+                  required 
+                  autocomplete="off"
+                >
+              </div>
+              <!-- Quick Ticker Suggestions -->
+              <div class="d-flex flex-wrap gap-1 mt-2">
+                <span class="ticker-pill" onclick="setTicker('AAPL')">AAPL</span>
+                <span class="ticker-pill" onclick="setTicker('TSLA')">TSLA</span>
+                <span class="ticker-pill" onclick="setTicker('RELIANCE.NS')">RELIANCE.NS</span>
+                <span class="ticker-pill" onclick="setTicker('NVDA')">NVDA</span>
+                <span class="ticker-pill" onclick="setTicker('MSFT')">MSFT</span>
+                <span class="ticker-pill" onclick="setTicker('SPY')">SPY</span>
+              </div>
+            </div>
+
+            <!-- Investment Amount Input -->
+            <div class="mb-3">
+              <label for="investment-input" class="form-label text-secondary small fw-medium">Investment Capital</label>
+              <div class="input-group">
+                <span class="input-group-text font-mono" id="currency-prefix">$</span>
+                <input 
+                  type="number" 
+                  id="investment-input" 
+                  class="form-control font-mono" 
+                  value="100000" 
+                  min="1" 
+                  step="1000" 
+                  required
+                >
+              </div>
+              <div class="form-text text-secondary opacity-75 small">Initial portfolio capital (Day 0)</div>
+            </div>
+
+            <!-- Simulation Days Input & Short Horizon Presets -->
+            <div class="mb-3">
+              <label for="days-input" class="form-label text-secondary small fw-medium">Time Horizon (Trading Days)</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-calendar3 text-secondary"></i></span>
+                <input 
+                  type="number" 
+                  id="days-input" 
+                  class="form-control font-mono" 
+                  value="252" 
+                  min="1" 
+                  max="2520" 
+                  step="1" 
+                  required
+                >
+              </div>
+              <!-- Basel Presets: 1-Day, 10-Day, 252-Day -->
+              <div class="d-flex flex-wrap gap-1 mt-2">
+                <button type="button" class="preset-pill" onclick="setHorizon(1)">1-Day (Basel)</button>
+                <button type="button" class="preset-pill" onclick="setHorizon(10)">10-Day (Basel)</button>
+                <button type="button" class="preset-pill active" id="btn-252" onclick="setHorizon(252)">252-Day</button>
+              </div>
+              <div class="form-text text-secondary opacity-75 small mt-1">Short horizons reveal real fat-tail divergence</div>
+            </div>
+
+            <!-- Drift Assumption Dropdown (Shortened to prevent clipping) -->
+            <div class="mb-3">
+              <label for="drift-select" class="form-label text-secondary small fw-medium">Drift Assumption</label>
+              <select id="drift-select" class="form-select font-mono small">
+                <option value="zero" selected>Zero Drift</option>
+                <option value="historical">Historical Drift</option>
+                <option value="risk_free">Risk-Free Rate</option>
+              </select>
+              <div class="form-text text-secondary opacity-75 small" id="rf-note">Auto-detected benchmark: ~4.0% USD / ~6.8% INR</div>
+            </div>
+
+            <!-- Confidence Level Selector (Shortened to prevent clipping) -->
+            <div class="mb-4">
+              <label for="confidence-select" class="form-label text-secondary small fw-medium">Confidence Level</label>
+              <select id="confidence-select" class="form-select font-mono small">
+                <option value="90">90% Confidence</option>
+                <option value="95" selected>95% Confidence</option>
+                <option value="99">99% Confidence</option>
+              </select>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="run-btn" class="btn btn-risk-engine w-100 d-flex align-items-center justify-content-center gap-2">
+              <i class="bi bi-cpu-fill" id="btn-icon"></i>
+              <span id="btn-spinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+              <span id="btn-text">Run Risk Engine</span>
+            </button>
+          </form>
+
+          <!-- Algorithm Specifications Note -->
+          <div class="mt-4 pt-3 border-top border-secondary border-opacity-25 text-secondary small">
+            <div class="d-flex align-items-center gap-1 mb-1 text-light">
+              <i class="bi bi-shield-check text-success"></i>
+              <span class="fw-semibold">Model Specifications</span>
+            </div>
+            <ul class="ps-3 mb-0 opacity-75" style="font-size: 0.78rem;">
+              <li>Geometric Brownian Motion (GBM)</li>
+              <li>5-Day Moving Block Bootstrap (ARCH)</li>
+              <li id="history-spec-text"><span id="history-spec-label">Actual Historical Lookback</span></li>
+              <li>10,000 Stochastic Iterations</li>
+              <li>Logarithmic Scale Percentile Fan Bands</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results & Visualizations (Right Column) -->
+      <div class="col-lg-8 col-xl-9">
+        <!-- Output Cards Grid -->
+        <div class="row g-3 mb-4">
+          <!-- Primary Hero Card: VaR (Loss Amount) & Monte Carlo SE -->
+          <div class="col-md-6 col-xl-4">
+            <div class="card glass-card var-hero-card p-3 h-100">
+              <div class="d-flex justify-content-between align-items-start">
+                <span class="text-uppercase small fw-bold text-danger opacity-75">Tail Risk Metric</span>
+                <span id="conf-badge" class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25">95% Conf.</span>
+              </div>
+              <h3 id="var-title" class="h6 fw-semibold text-secondary mt-1 mb-2">VaR (Loss Amount)</h3>
+              <div class="var-value-display font-mono">
+                <span id="var-display">$0.00</span>
+                <span id="var-se-display" class="se-badge font-mono" title="Monte Carlo Standard Error of VaR">± $0</span>
+              </div>
+              <div class="metric-subtext mt-2 d-flex flex-column gap-1">
+                <div>VaR (% of Capital): <span id="var-pct-display" class="text-danger fw-bold font-mono">0.0%</span></div>
+                <div class="small opacity-75">CVaR (Expected Shortfall): <span id="es-display" class="text-danger fw-semibold font-mono">--</span></div>
+                <div class="small opacity-75">Worst-5% Terminal Value: <span id="worst-case-hero-display" class="text-warning fw-semibold font-mono">--</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Secondary Card: Baseline & Ticker Info -->
+          <div class="col-md-6 col-xl-4">
+            <div class="card glass-card p-3 h-100">
+              <div class="d-flex justify-content-between align-items-start">
+                <span class="text-uppercase small fw-bold text-secondary opacity-75">Baseline (Day 0)</span>
+                <div class="d-flex flex-wrap gap-1 align-items-center">
+                  <span id="ticker-badge" class="badge bg-primary bg-opacity-25 text-info border border-info border-opacity-25 font-mono">AAPL</span>
+                  <span id="currency-badge" class="badge bg-secondary bg-opacity-25 text-light border border-secondary border-opacity-25 font-mono">USD</span>
+                  <span id="lookback-badge" class="badge bg-dark border border-secondary border-opacity-50 text-secondary font-mono small">--</span>
+                </div>
+              </div>
+              <h3 class="h6 fw-semibold text-secondary mt-1 mb-2">Portfolio Capital (Day 0)</h3>
+              <div id="portfolio-display" class="h3 fw-bold text-white font-mono mb-1">$100,000.00</div>
+              <div class="metric-subtext d-flex flex-column gap-1">
+                <div>Current Asset Price: <span id="initial-price-display" class="text-info fw-semibold font-mono">--</span></div>
+                <div class="small opacity-75">Annualized Volatility: <span id="vol-display" class="text-secondary fw-semibold font-mono">--</span></div>
+                <div class="small opacity-75">Applied Drift: <span id="drift-display" class="text-secondary fw-semibold font-mono">--</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tertiary Card: Mean & Median Simulated Terminal Value -->
+          <div class="col-md-12 col-xl-4">
+            <div class="card glass-card p-3 h-100">
+              <div class="d-flex justify-content-between align-items-start">
+                <span class="text-uppercase small fw-bold text-secondary opacity-75">Simulated Horizon</span>
+                <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25">10k Sims</span>
+              </div>
+              <h3 class="h6 fw-semibold text-secondary mt-1 mb-1">Mean Simulated Terminal Value</h3>
+              <div class="small text-secondary mb-2 opacity-75">
+                Mean of 10,000 simulated terminal portfolio values
+              </div>
+              <div id="expected-display" class="h3 fw-bold font-mono mb-2" style="color: var(--accent-emerald);">$0.00</div>
+              <div class="metric-subtext d-flex flex-column gap-1 pt-1 border-top border-secondary border-opacity-25">
+                <div>Median Terminal Value (P50): <span id="median-display" class="text-info fw-bold font-mono">--</span></div>
+                <div>Probability of Loss: <span id="prob-loss-display" class="text-warning fw-semibold font-mono">--</span></div>
+                <div class="small opacity-75">Worst-5% Terminal Value: <span id="worst-case-display" class="text-warning fw-semibold font-mono">--</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Comparison: GBM vs 5-Day Block Bootstrap Table -->
+        <div class="card glass-card p-3 mb-4">
+          <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+            <div>
+              <span class="text-uppercase small fw-bold text-info">Model Comparison</span>
+              <h4 class="h6 fw-semibold text-white mb-0">Parametric GBM vs. 5-Day Block Bootstrap (ARCH Volatility Clustering)</h4>
+            </div>
+            <span class="badge bg-dark border border-secondary border-opacity-50 text-secondary font-mono small">
+              Short-term Memory & Fat Tails
+            </span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-dark table-sm table-borderless table-dark-custom align-middle mb-0 font-mono small">
+              <thead>
+                <tr class="text-secondary border-bottom border-secondary border-opacity-25">
+                  <th>Model</th>
+                  <th>VaR (Loss Amount)</th>
+                  <th>VaR (% of Capital)</th>
+                  <th>CVaR (Expected Shortfall)</th>
+                  <th>Worst-5% Terminal Value</th>
+                  <th>Prob. of Loss</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="text-info fw-bold"><i class="bi bi-graph-up me-1"></i> Geometric Brownian Motion</td>
+                  <td id="comp-gbm-var">$0.00</td>
+                  <td id="comp-gbm-var-pct" class="text-danger">0.0%</td>
+                  <td id="comp-gbm-cvar">$0.00</td>
+                  <td id="comp-gbm-worst" class="text-warning">$0.00</td>
+                  <td id="comp-gbm-loss-pct">0.0%</td>
+                </tr>
+                <tr>
+                  <td class="text-emerald fw-bold" style="color: var(--accent-emerald);"><i class="bi bi-shuffle me-1"></i> 5-Day Block Bootstrap</td>
+                  <td id="comp-boot-var">$0.00</td>
+                  <td id="comp-boot-var-pct" class="text-danger">0.0%</td>
+                  <td id="comp-boot-cvar">$0.00</td>
+                  <td id="comp-boot-worst" class="text-warning">$0.00</td>
+                  <td id="comp-boot-loss-pct">0.0%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Interactive Plotly Visualizations Card with Tabs (Picture 2) -->
+        <div class="card glass-card p-3 p-md-4">
+          <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+            <div>
+              <h2 class="h5 fw-semibold mb-0 text-white">Visual Risk Analytics</h2>
+              <p class="text-secondary small mb-0">Interactive trajectory fan bands and terminal VaR tail distribution</p>
+            </div>
+            <!-- Tab Switcher -->
+            <ul class="nav nav-tabs-custom gap-2 border-0 mt-2 mt-sm-0" id="chartTabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="paths-tab" data-bs-toggle="tab" data-bs-target="#paths-tab-pane" type="button" role="tab" onclick="switchChartTab('paths')">
+                  <i class="bi bi-graph-up-arrow me-1"></i> Trajectory Fan Chart
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="hist-tab" data-bs-toggle="tab" data-bs-target="#hist-tab-pane" type="button" role="tab" onclick="switchChartTab('hist')">
+                  <i class="bi bi-bar-chart-line me-1"></i> Terminal VaR Histogram
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Chart Container Tabs -->
+          <div class="tab-content" id="chartTabsContent">
+            <!-- Trajectory Fan Chart Pane -->
+            <div class="tab-pane fade show active" id="paths-tab-pane" role="tabpanel">
+              <div id="plot-container" class="chart-container-box">
+                <div class="d-flex flex-column align-items-center justify-content-center h-100" style="min-height: 460px;">
+                  <div class="pulse-loader mb-3"></div>
+                  <p class="mb-0 fw-medium">Initializing Quantitative Risk Engine...</p>
+                  <small class="text-secondary opacity-75">Fetching market data & generating 10,000 stochastic trajectories</small>
+                </div>
+              </div>
+            </div>
+            <!-- VaR Histogram Pane -->
+            <div class="tab-pane fade" id="hist-tab-pane" role="tabpanel">
+              <div id="hist-container" class="chart-container-box">
+                <div class="d-flex flex-column align-items-center justify-content-center h-100" style="min-height: 460px;">
+                  <div class="pulse-loader mb-3"></div>
+                  <p class="mb-0 fw-medium">Generating Tail Risk Distribution...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quantitative Disclaimer Footer -->
+        <div class="mt-4 p-3 rounded-3 border border-secondary border-opacity-25 text-secondary small bg-black bg-opacity-40">
+          <div class="d-flex align-items-start gap-2">
+            <i class="bi bi-info-circle text-secondary fs-6 mt-1"></i>
+            <div>
+              <span class="fw-semibold text-light">Quantitative Modeling Disclaimer:</span>
+              This system is engineered strictly for illustrative, statistical risk-modeling, and educational purposes. It does not constitute financial, investment, or trading advice. Past historical returns and stochastic simulations are not indicative of future market outcomes. Real financial markets exhibit regime shifts, liquidity drying, and non-linear tail events beyond standard assumptions.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    let globalSimulationData = null;
+
+    function setTicker(symbol) {
+      document.getElementById('ticker-input').value = symbol;
+      runSimulation();
+    }
+
+    function setHorizon(days) {
+      document.getElementById('days-input').value = days;
+      // Update active state on preset buttons
+      document.querySelectorAll('.preset-pill').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = event ? event.target : null;
+      if (activeBtn && activeBtn.classList.contains('preset-pill')) {
+        activeBtn.classList.add('active');
+      }
+      runSimulation();
+    }
+
+    function formatCurrency(val, currencyCode = 'USD') {
+      try {
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: currencyCode || 'USD',
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }).format(val);
+      } catch (e) {
+        return `${currencyCode || ''} ${Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      }
+    }
+
+    function showError(message) {
+      const alertBox = document.getElementById('error-alert');
+      const msgBox = document.getElementById('error-message');
+      msgBox.textContent = message;
+      alertBox.classList.remove('d-none');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function hideError() {
+      document.getElementById('error-alert').classList.add('d-none');
+    }
+
+    function switchChartTab(tab) {
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 50);
+    }
+
+    async function runSimulation() {
+      hideError();
+
+      const tickerInput = document.getElementById('ticker-input');
+      const investmentInput = document.getElementById('investment-input');
+      const daysInput = document.getElementById('days-input');
+      const driftSelect = document.getElementById('drift-select');
+      const confSelect = document.getElementById('confidence-select');
+
+      const ticker = tickerInput.value.trim().toUpperCase() || 'AAPL';
+      const portfolioValue = parseFloat(investmentInput.value) || 100000;
+      const timeHorizon = parseInt(daysInput.value, 10) || 252;
+      const driftMode = driftSelect.value || 'zero';
+      const confidenceLevel = parseInt(confSelect.value, 10) || 95;
+
+      // Update UI loading state
+      const runBtn = document.getElementById('run-btn');
+      const btnSpinner = document.getElementById('btn-spinner');
+      const btnIcon = document.getElementById('btn-icon');
+      const btnText = document.getElementById('btn-text');
+
+      runBtn.disabled = true;
+      btnSpinner.classList.remove('d-none');
+      btnIcon.classList.add('d-none');
+      btnText.textContent = 'Simulating...';
+
+      const plotContainer = document.getElementById('plot-container');
+      const histContainer = document.getElementById('hist-container');
+
+      try {
+        const response = await fetch('/simulate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            ticker: ticker,
+            portfolio_value: portfolioValue,
+            time_horizon: timeHorizon,
+            drift_mode: driftMode,
+            confidence_level: confidenceLevel
+          })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        globalSimulationData = data;
+
+        const curr = data.currency || 'USD';
+        const symbol = data.currency_symbol || '$';
+
+        // Update Currency Badges & Input Prefix
+        const currBadge = document.getElementById('currency-badge');
+        if (currBadge) currBadge.textContent = curr;
+        const currPrefix = document.getElementById('currency-prefix');
+        if (currPrefix) currPrefix.textContent = symbol;
+
+        // Dynamic Confidence Badge & Title
+        const confBadge = document.getElementById('conf-badge');
+        if (confBadge) confBadge.textContent = `${confidenceLevel}% Conf.`;
+
+        const varTitle = document.getElementById('var-title');
+        if (varTitle) varTitle.textContent = `VaR (Loss Amount) [${data.horizon_label}]`;
+
+        // Update Primary Hero Card with Monte Carlo Standard Error
+        const activeVar = data.var_active !== undefined ? data.var_active : data.var_95;
+        const activeVarPct = data.var_active_pct !== undefined ? data.var_active_pct : data.var_95_pct;
+        const activeCVar = data.cvar_active !== undefined ? data.cvar_active : data.expected_shortfall_95;
+        const activeVarSe = data.var_se !== undefined ? data.var_se : 0;
+
+        document.getElementById('var-display').textContent = formatCurrency(activeVar, curr);
+        document.getElementById('var-se-display').textContent = `± ${formatCurrency(activeVarSe, curr)}`;
+        document.getElementById('var-pct-display').textContent = `${activeVarPct.toFixed(2)}%`;
+        
+        const esDisplay = document.getElementById('es-display');
+        if (esDisplay) {
+          esDisplay.textContent = formatCurrency(activeCVar, curr);
+        }
+
+        const worstCaseVal = data.terminal_p5 !== undefined ? data.terminal_p5 : (data.portfolio_value - data.var_95);
+        const worstCaseHero = document.getElementById('worst-case-hero-display');
+        if (worstCaseHero) {
+          worstCaseHero.textContent = formatCurrency(worstCaseVal, curr);
+        }
+
+        // Update Baseline KPI cards
+        document.getElementById('ticker-badge').textContent = data.ticker;
+        document.getElementById('portfolio-display').textContent = formatCurrency(data.initial_investment || data.portfolio_value, curr);
+        document.getElementById('initial-price-display').textContent = formatCurrency(data.stock_price, data.stock_currency || curr);
+        
+        const volDisplay = document.getElementById('vol-display');
+        if (volDisplay && data.annualized_volatility !== undefined) {
+          volDisplay.textContent = `${(data.annualized_volatility * 100).toFixed(2)}% (252-day)`;
+        }
+
+        const driftDisplay = document.getElementById('drift-display');
+        if (driftDisplay && data.drift_desc) {
+          driftDisplay.textContent = data.drift_desc;
+        }
+
+        const lookbackBadge = document.getElementById('lookback-badge');
+        if (lookbackBadge && data.lookback_label) {
+          lookbackBadge.textContent = data.lookback_label;
+        }
+
+        const historySpecLabel = document.getElementById('history-spec-label');
+        if (historySpecLabel && data.lookback_label) {
+          historySpecLabel.textContent = `${data.lookback_label} (${data.observations ? data.observations.toLocaleString() : ''} obs)`;
+        }
+
+        // Mean and Median Simulated Terminal Value
+        document.getElementById('expected-display').textContent = formatCurrency(data.terminal_mean, curr);
+        
+        const medianDisplay = document.getElementById('median-display');
+        if (medianDisplay && data.terminal_median !== undefined) {
+          medianDisplay.textContent = formatCurrency(data.terminal_median, curr);
+        }
+
+        const probLossDisplay = document.getElementById('prob-loss-display');
+        if (probLossDisplay && data.probability_of_loss_pct !== undefined) {
+          probLossDisplay.textContent = `${data.probability_of_loss_pct.toFixed(2)}%`;
+        }
+
+        document.getElementById('worst-case-display').textContent = formatCurrency(worstCaseVal, curr);
+
+        // Update Model Comparison Table (Disambiguated Labels)
+        document.getElementById('comp-gbm-var').textContent = formatCurrency(activeVar, curr);
+        document.getElementById('comp-gbm-var-pct').textContent = `${activeVarPct.toFixed(2)}%`;
+        document.getElementById('comp-gbm-cvar').textContent = formatCurrency(activeCVar, curr);
+        document.getElementById('comp-gbm-worst').textContent = formatCurrency(worstCaseVal, curr);
+        document.getElementById('comp-gbm-loss-pct').textContent = `${data.probability_of_loss_pct.toFixed(2)}%`;
+
+        if (data.bootstrap) {
+          const b = data.bootstrap;
+          document.getElementById('comp-boot-var').textContent = formatCurrency(b.var_active, curr);
+          document.getElementById('comp-boot-var-pct').textContent = `${b.var_active_pct.toFixed(2)}%`;
+          document.getElementById('comp-boot-cvar').textContent = formatCurrency(b.cvar_active, curr);
+          document.getElementById('comp-boot-worst').textContent = formatCurrency(b.worst_5_pct_terminal_value || b.terminal_p5, curr);
+          document.getElementById('comp-boot-loss-pct').textContent = `${b.probability_of_loss_pct.toFixed(2)}%`;
+        }
+
+        // Inject Trajectory Fan Chart (Picture 2)
+        plotContainer.innerHTML = data.plot_html;
+        const plotScripts = plotContainer.querySelectorAll('script');
+        plotScripts.forEach(oldScript => {
+          const newScript = document.createElement('script');
+          Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+          newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+          oldScript.parentNode.replaceChild(newScript, oldScript);
+        });
+
+        // Inject Terminal VaR Histogram into second tab
+        if (data.hist_html && histContainer) {
+          histContainer.innerHTML = data.hist_html;
+          const histScripts = histContainer.querySelectorAll('script');
+          histScripts.forEach(oldScript => {
+            const newScript = document.createElement('script');
+            Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+            newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+          });
+        }
+
+      } catch (err) {
+        showError(err.message || 'Failed to complete Monte Carlo simulation.');
+      } finally {
+        runBtn.disabled = false;
+        btnSpinner.classList.add('d-none');
+        btnIcon.classList.remove('d-none');
+        btnText.textContent = 'Run Risk Engine';
+      }
+    }
+
+    // Trigger initial simulation on load
+    document.addEventListener('DOMContentLoaded', () => {
+      runSimulation();
+    });
+  </script>
+</body>
+</html>
