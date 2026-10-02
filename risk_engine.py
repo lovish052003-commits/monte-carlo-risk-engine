@@ -2,7 +2,7 @@
 Monte Carlo Risk & Valuation Engine
 ====================================
 Quantitative Monte Carlo simulation engine and Value at Risk (VaR) analyzer
-meeting institutional quantitative finance standards.
+illustrative risk simulator.
 
 Features:
 - Geometric Brownian Motion (GBM) with configurable drift (Zero, Risk-Free, Historical)
@@ -194,7 +194,10 @@ def fetch_historical_prices(ticker: str, period: str = "5y") -> Tuple[pd.Series,
         )
 
     # If quoted in GBp (pence on LSE), normalize to GBP
-    raw_currency = getattr(stock.fast_info, "currency", None) if hasattr(stock, "fast_info") else None
+    try:
+        raw_currency = stock.fast_info.currency
+    except Exception:
+        raw_currency = None
     if raw_currency == "GBp":
         close_series = close_series / 100.0
 
@@ -372,12 +375,11 @@ def simulate_gbm_portfolio(
     growth_factors = np.exp(cum_log)
 
     portfolio_paths = investment_amount * growth_factors
-    stock_paths = current_stock_price * growth_factors
 
     if np.max(np.abs(portfolio_paths[0, :] - investment_amount)) > 1e-4:
         raise RuntimeError("Day 0 portfolio value deviates from investment amount.")
 
-    return portfolio_paths, stock_paths, shares
+    return portfolio_paths, None, shares
 
 
 def simulate_block_bootstrap_portfolio(
@@ -410,10 +412,10 @@ def simulate_block_bootstrap_portfolio(
         # Vectorized block sampling:
         # Sample starting indices for each block: shape (num_blocks, simulations)
         start_idx = rng.integers(0, max_start + 1, size=(num_blocks, simulations))
-        # Offsets 0..b-1: shape (b, 1, 1)
-        offsets = np.arange(b).reshape(b, 1, 1)
-        # Full contiguous blocks: shape (b, num_blocks, simulations)
-        block_idx = (start_idx[np.newaxis, :, :] + offsets).reshape(num_blocks * b, simulations)
+        # Offsets 0..b-1: shape (1, b, 1)
+        offsets = np.arange(b).reshape(1, b, 1)
+        # Full contiguous blocks: shape (num_blocks * b, simulations)
+        block_idx = (start_idx[:, np.newaxis, :] + offsets).reshape(num_blocks * b, simulations)
         # Slice to exact required time horizon
         boot_increments = r_centered[block_idx[:time_horizon, :]]
 
@@ -753,6 +755,7 @@ def build_terminal_histogram(
     ))
 
     # VaR cutoff line
+    fig.add_vrect(x0=float(terminal_values.min()), x1=var_cutoff, fillcolor="rgba(244,63,94,0.12)", line_width=0)
     fig.add_vline(
         x=var_cutoff,
         line_dash="dash",
@@ -874,7 +877,7 @@ def run_monte_carlo_engine(
     params = calculate_log_returns_and_parameters(working_prices)
 
     # 4. Dynamic Risk-Free Rate benchmark resolution
-    if rf_rate is None or rf_rate == 0.05:
+    if rf_rate is None:
         # Dynamically set 4.0% for USD and 6.8% for INR tickers
         effective_rf = get_default_risk_free_rate(ticker, active_currency)
     else:
@@ -938,7 +941,7 @@ def run_monte_carlo_engine(
 
     # Dynamic horizon descriptor
     if time_horizon == 1:
-        horizon_label = "1-Day (Basel)"
+        horizon_label = "1-Day"
     elif time_horizon == 10:
         horizon_label = "10-Day (Basel)"
     elif time_horizon == 252:

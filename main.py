@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Literal
 import os
 
 from risk_engine import run_monte_carlo_engine
@@ -21,11 +21,11 @@ class SimulationRequest(BaseModel):
         description="Stock ticker symbol"
     )
     portfolio_value: float = Field(default=100000.0, gt=0, description="Total portfolio investment amount")
-    time_horizon: int = Field(default=252, ge=1, le=2520, description="Simulation trading days (1-Day Basel to multi-year)")
+    time_horizon: int = Field(default=252, ge=1, le=756, description="Simulation trading days (1-Day Basel to multi-year)")
     currency: Optional[str] = Field(default=None, description="Optional investment currency override")
     random_seed: Optional[int] = Field(default=42, description="Random seed for simulation reproducibility")
-    drift_mode: Optional[str] = Field(default="zero", description="Drift assumption: 'zero', 'risk_free', or 'historical'")
-    confidence_level: Optional[int] = Field(default=95, description="Confidence level: 90, 95, or 99")
+    drift_mode: Optional[Literal["zero", "risk_free", "historical"]] = Field(default="zero", description="Drift assumption: 'zero', 'risk_free', or 'historical'")
+    confidence_level: Optional[Literal[90, 95, 99]] = Field(default=95, description="Confidence level: 90, 95, or 99")
     rf_rate: Optional[float] = Field(default=None, ge=0.0, le=0.5, description="Optional risk-free rate override")
 
 
